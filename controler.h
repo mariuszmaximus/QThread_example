@@ -1,9 +1,9 @@
-#ifndef CONTROLER_H
-#define CONTROLER_H
+#pragma once
 
 #include <QObject>
 #include <QThread>
 #include <QDebug>
+#include <deque>
 #include "data.h"
 
 #include "worker.h"
@@ -25,12 +25,20 @@ public:
         static Controler instance;
         return instance;
     }
+
+    void addWork(const Data&d) { 
+        worker->addWork(d); // dodaje do listy porcje danych do synchronizacji uzyty std::lock_guard<std::mutex> 
+        emit onWorkAdded(); // wysylam sygnal aby robota ruszyła  
+    };
+
+    int workCount(){
+        return worker->workCount();
+    }
 private:
-    Controler(QObject *parent = nullptr)
+    Controler(QObject *parent = nullptr):worker(new Worker) 
     {
-        worker = new Worker;
         worker->moveToThread(&workerThread);
-        connect(this, &Controler::addWork, worker, &Worker::doWork);
+        connect(this, &Controler::onWorkAdded, worker, &Worker::doWork);
         workerThread.start();
     }
 
@@ -42,16 +50,13 @@ private:
     void stopAndWait()
     {
         qDebug()<<"stopAndWait begin";
-        workerThread.requestInterruption(); //   worker->stop=true;
-
+        workerThread.requestInterruption(); 
         workerThread.quit();
         workerThread.wait();
-
-        // workerThread.wait();
         qDebug()<<"stopAndWait end";
     }
 signals:
-    void addWork(const Data&);
+    void onWorkAdded();
 };
 
-#endif // CONTROLER_H
+
